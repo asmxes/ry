@@ -40,11 +40,17 @@ export RY_LOG_PATH=/Users/asmxes/Desktop/my_app.log
 ### Event bus
 
 ```cpp
-    RY_SUBSCRIBE("test_event", &func_callback)
-
-    RY_SUBSCRIBE("test_event", &object, &TestClass::method_callback)
-
+    TestClass a;
     u32 number = 1339;
+
+    RY_SUBSCRIBE("test_event", &c_func_callback)
+    RY_SUBSCRIBE("test_event", &a, &TestClass::callback_example)
     RY_PUBLISH("test_event", &number)
 
+    RY_PUBLISH_ASYNC("test_event", &number)
 ```
+
+Event names will eventually fallback to a `unsigned int/u32 event_id` variable.
+
+### TODO
+Pass N arguments as events instead of a buffer pointer.

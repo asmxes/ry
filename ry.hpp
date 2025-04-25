@@ -9,11 +9,11 @@ typedef signed short s16;
 typedef unsigned short u16;
 typedef signed int s32;
 typedef unsigned int u32;
-typedef signed long s64;
-typedef unsigned long u64;
+typedef signed long long s64;
+typedef unsigned long long u64;
 typedef float f32;
 typedef double f64;
-typedef void* ptr;
+typedef void *ptr;
 
 // LOG ----------
 
@@ -22,32 +22,32 @@ typedef void* ptr;
 #include <cstdlib>
 #include <string>
 
-#define RY_LOG_COLOR_RESET   "\033[0m"
-#define RY_LOG_COLOR_RED     "\033[31m"
-#define RY_LOG_COLOR_GREEN   "\033[32m"
-#define RY_LOG_COLOR_YELLOW  "\033[33m"
-#define RY_LOG_COLOR_BLUE    "\033[34m"
+#define RY_LOG_COLOR_RESET "\033[0m"
+#define RY_LOG_COLOR_RED "\033[31m"
+#define RY_LOG_COLOR_GREEN "\033[32m"
+#define RY_LOG_COLOR_YELLOW "\033[33m"
+#define RY_LOG_COLOR_BLUE "\033[34m"
 #define RY_LOG_COLOR_MAGENTA "\033[35m"
-#define RY_LOG_COLOR_CYAN    "\033[36m"
+#define RY_LOG_COLOR_CYAN "\033[36m"
 
-inline std::ostream& _RY_GET_LOG_OUTPUT(bool is_error = false)
+inline std::ostream &_RY_GET_LOG_OUTPUT(bool is_error = false)
 {
     static std::ofstream file_stream;
-    const char* log_path = std::getenv("RY_LOG_PATH");
+    const char *log_path = std::getenv("RY_LOG_PATH");
 
-    if(file_stream.is_open())
+    if (file_stream.is_open())
     {
         return file_stream;
     }
 
-    if(!log_path)
+    if (!log_path)
     {
         return is_error ? std::cerr : std::cout;
     }
     else
     {
         file_stream.open(log_path, std::ios::app);
-        if(!file_stream.is_open())
+        if (!file_stream.is_open())
         {
             return is_error ? std::cerr : std::cout;
         }
@@ -58,28 +58,39 @@ inline std::ostream& _RY_GET_LOG_OUTPUT(bool is_error = false)
     }
 }
 
-#define RY_LOG(level, message) {if (std::getenv(std::string(std::string("RY_LOG_LEVEL_") + std::string(level)).c_str()) || std::getenv("RY_LOG_LEVEL_ALL")){_RY_GET_LOG_OUTPUT() << RY_LOG_COLOR_CYAN << "● [ " << level << " ] » " << RY_LOG_COLOR_RESET << message << std::endl;}}
-#define RY_ERR(message) {_RY_GET_LOG_OUTPUT(true) << RY_LOG_COLOR_RED << "✘ [ " << __FUNCTION__ << " ] » " << RY_LOG_COLOR_RESET << message << std::endl;}
+#define RY_LOG(level, message)                                                                                                      \
+    {                                                                                                                               \
+        if (std::getenv(std::string(std::string("RY_LOG_LEVEL_") + std::string(level)).c_str()) || std::getenv("RY_LOG_LEVEL_ALL")) \
+        {                                                                                                                           \
+            _RY_GET_LOG_OUTPUT() << RY_LOG_COLOR_CYAN << "● [ " << level << " ] » " << RY_LOG_COLOR_RESET << message << std::endl;  \
+        }                                                                                                                           \
+    }
+#define RY_ERR(message)                                                                                                                  \
+    {                                                                                                                                    \
+        _RY_GET_LOG_OUTPUT(true) << RY_LOG_COLOR_RED << "✘ [ " << __FUNCTION__ << " ] » " << RY_LOG_COLOR_RESET << message << std::endl; \
+    }
 
 // HASH ----------
 
 inline u8 _RY_CHAR_TO_LOWER(u8 input)
 {
-	if (static_cast<u8>(input - 0x41) > 0x19u) return input;
-	else return input + 0x20;
+    if (static_cast<u8>(input - 0x41) > 0x19u)
+        return input;
+    else
+        return input + 0x20;
 }
 
 inline u32 RY_HASH_STRING(std::string s)
 {
-	u32 hash = 0x811c9dc5;
-	const char* str = s.c_str();
+    u32 hash = 0x811c9dc5;
+    const char *str = s.c_str();
 
-	for (u32 i = 0u; str[i]; i++)
-	{
-		hash = 16777619 * (hash ^ _RY_CHAR_TO_LOWER(str[i]));
-	}
+    for (u32 i = 0u; str[i]; i++)
+    {
+        hash = 16777619 * (hash ^ _RY_CHAR_TO_LOWER(str[i]));
+    }
 
-	return hash;
+    return hash;
 }
 
 // EVENT ----------
@@ -104,22 +115,25 @@ class _ry_event_manager
         O _o;
         F _f;
 
-        _typed_proxy(O _o_in, F _f_in) : _o(_o_in), _f(_f_in){}
+        _typed_proxy(O _o_in, F _f_in) : _o(_o_in), _f(_f_in) {}
     };
 
-    std::unordered_map<ry_event_id, std::vector<_callback_enity*> > _subscribers;
+    std::unordered_map<ry_event_id, std::vector<_callback_enity *>> _subscribers;
 
-    std::queue<std::pair<ry_event_id, ptr> > _async_events;
+    std::queue<std::pair<ry_event_id, ptr>> _async_events;
+
+    std::thread _async_publisher;
+    bool _async_thred_should_run;
 
     _ry_event_manager();
+    ~_ry_event_manager();
 
     void _async_publisher();
 
     template <typename O, typename F>
     ptr _create_proxy(O object, F fun);
 
-    public:
-
+public:
     template <typename O, typename F>
     ry_event_contract_id subscribe(ry_event_id event_id, O object, F func);
 
@@ -132,27 +146,36 @@ class _ry_event_manager
 
     void publish_async(ry_event_id event_id, ptr data);
 
-    static _ry_event_manager* get_singleton();
+    static _ry_event_manager *get_singleton();
 };
 
 #define _RY_EVENT_MANAGER _ry_event_manager::get_singleton
-#define RY_SUBSCRIBE(event_name, ...)  {_RY_EVENT_MANAGER()->subscribe(RY_HASH_STRING(event_name), __VA_ARGS__);}
-#define RY_PUBLISH(event_name, data) {_RY_EVENT_MANAGER()->publish(RY_HASH_STRING(event_name), data);}
-#define RY_PUBLISH_ASYNC(event_name, data) {_RY_EVENT_MANAGER()->publish_async(RY_HASH_STRING(event_name), data);}
+#define RY_SUBSCRIBE(event_name, ...)                                            \
+    {                                                                            \
+        _RY_EVENT_MANAGER()->subscribe(RY_HASH_STRING(event_name), __VA_ARGS__); \
+    }
+#define RY_PUBLISH(event_name, data)                                    \
+    {                                                                   \
+        _RY_EVENT_MANAGER()->publish(RY_HASH_STRING(event_name), data); \
+    }
+#define RY_PUBLISH_ASYNC(event_name, data)                                    \
+    {                                                                         \
+        _RY_EVENT_MANAGER()->publish_async(RY_HASH_STRING(event_name), data); \
+    }
 
 template <typename O, typename F>
 ptr _ry_event_manager::_create_proxy(O object, F fun)
 {
     using proxy = _typed_proxy<O, F>;
 
-    auto* pack = new proxy(object, fun);
+    auto *pack = new proxy(object, fun);
     return static_cast<ptr>(pack);
 }
 
 template <typename O, typename F>
 ry_event_contract_id _ry_event_manager::subscribe(ry_event_id event_id, O object, F func)
 {
-    _callback_enity* proxy = reinterpret_cast<_callback_enity*>(this->_create_proxy(object, func));
+    _callback_enity *proxy = reinterpret_cast<_callback_enity *>(this->_create_proxy(object, func));
     this->_subscribers[event_id].emplace_back(proxy);
     return reinterpret_cast<ry_event_contract_id>(proxy);
 }
@@ -160,13 +183,51 @@ ry_event_contract_id _ry_event_manager::subscribe(ry_event_id event_id, O object
 template <typename F>
 ry_event_contract_id _ry_event_manager::subscribe(ry_event_id event_id, F func)
 {
-    _callback_enity* proxy = new _callback_enity();
+    _callback_enity *proxy = new _callback_enity();
     proxy->obj = nullptr;
     proxy->func = reinterpret_cast<ptr>(func);
 
     this->_subscribers[event_id].emplace_back(proxy);
     return reinterpret_cast<ry_event_contract_id>(proxy);
 }
+
+// MODULE ----------
+
+#include <thread>
+#include <vector>
+
+class _ry_module
+{
+
+protected:
+    bool _register_update_thread = false;
+    bool _exit_requested = false;
+    bool _is_running = false;
+    std::thread _thread = {};
+
+    static std::vector<_ry_module *> _all;
+
+    virtual void thread_exec();
+    virtual void update() = 0;
+
+    _ry_module();
+    ~_ry_module();
+    _ry_module &operator=(const _ry_module &) = default;
+
+public:
+    virtual std::string get_name();
+
+    virtual void start();
+    virtual void stop();
+
+    static void start_all();
+    static void stop_all();
+    static void restart_all();
+};
+
+#define RY_MODULE _ry_module
+#define RY_MODULE_START_ALL _ry_module::start_all()
+#define RY_MODULE_STOP_ALL _ry_module::stop_all()
 
 #endif
 
@@ -177,16 +238,25 @@ ry_event_contract_id _ry_event_manager::subscribe(ry_event_id event_id, F func)
 
 _ry_event_manager::_ry_event_manager()
 {
-    std::thread(&_ry_event_manager::_async_publisher, this).detach();
+    this->_async_thred_should_run = true;
+    this->_async_publisher = std::thread(&_ry_event_manager::_async_publisher, this).detach();
+}
+
+_ry_event_manager::~_ry_event_manager()
+{
+    this->_async_thred_should_run = false;
+    if (this->_async_publisher.joinable())
+        this->_async_publisher.join();
+    // should break the thread :/
 }
 
 void _ry_event_manager::_async_publisher()
 {
     RY_LOG("_ry_event_manager", "Started _async_publisher thread")
 
-    while(true)
+    while (this->_async_thred_should_run)
     {
-        if(!_async_events.empty())
+        if (!this->_async_events.empty())
         {
             std::pair<ry_event_id, ptr> to_dispatch = this->_async_events.front();
             this->_async_events.pop();
@@ -208,11 +278,11 @@ void _ry_event_manager::publish_async(ry_event_id event_id, ptr data)
 void _ry_event_manager::unsubscribe(ry_event_id event_id, ry_event_contract_id contract_id)
 {
     auto &subscribed_entities = this->_subscribers[event_id];
-    for(auto it = subscribed_entities.begin();
-        it != subscribed_entities.end();
-        it++)
+    for (auto it = subscribed_entities.begin();
+         it != subscribed_entities.end();
+         it++)
     {
-        if(reinterpret_cast<ry_event_contract_id>(*it) == contract_id)
+        if (reinterpret_cast<ry_event_contract_id>(*it) == contract_id)
         {
             subscribed_entities.erase(it);
             delete (*it);
@@ -223,42 +293,111 @@ void _ry_event_manager::unsubscribe(ry_event_id event_id, ry_event_contract_id c
 
 void _ry_event_manager::publish(ry_event_id event_id, ptr data)
 {
-    if(!data)
+    if (!data)
     {
         return;
     }
 
     auto found = this->_subscribers.find(event_id);
 
-    if(found == this->_subscribers.end())
+    if (found == this->_subscribers.end())
     {
         return;
     }
     else
     {
-        for(auto& sub : found->second)
+        for (auto &sub : found->second)
         {
-            if(!sub->func)
+            if (!sub->func)
             {
                 continue;
             }
 
-            if(sub->obj)
+            if (sub->obj)
             {
-                reinterpret_cast<void(*)(ptr,ptr)>(sub->func)(sub->obj, data);
+                reinterpret_cast<void (*)(ptr, ptr)>(sub->func)(sub->obj, data);
             }
             else
             {
-                reinterpret_cast<void(*)(ptr)>(sub->func)(data);
+                reinterpret_cast<void (*)(ptr)>(sub->func)(data);
             }
         }
     }
 }
 
-_ry_event_manager* _ry_event_manager::get_singleton()
+_ry_event_manager *_ry_event_manager::get_singleton()
 {
     static _ry_event_manager object;
     return &object;
+}
+
+std::vector<_ry_module *> _ry_module::_all = {};
+
+void _ry_module::thread_exec()
+{
+    this->_is_running = true;
+    while (!this->_exit_requested)
+        this->update();
+    this->_is_running = false;
+}
+
+_ry_module::_ry_module()
+{
+    this->_all.push_back(this);
+}
+
+_ry_module::~_ry_module()
+{
+    auto it = std::find(_ry_module::_all.begin(), _ry_module::_all.end(), this);
+    if (it != _ry_module::_all.end())
+    {
+        _ry_module::_all.erase(it);
+    }
+}
+
+std::string _ry_module::get_name() { return "?"; }
+
+void _ry_module::start()
+{
+    RY_LOG("_ry_module", this->get_name());
+    if (this->_register_update_thread)
+    {
+        this->_thread = std::thread([this]()
+                                    { this->thread_exec(); });
+    }
+}
+
+void _ry_module::stop()
+{
+    RY_LOG("_ry_module", this->get_name());
+
+    this->_exit_requested = true;
+
+    if (this->_thread.joinable())
+        this->_thread.join();
+
+    this->_is_running = false;
+    this->_exit_requested = false;
+}
+
+void _ry_module::start_all()
+{
+    for (auto m : this->_all)
+    {
+        m->start();
+    }
+}
+
+void _ry_module::stop_all()
+{
+    for (auto m : this->_all)
+        m->stop();
+}
+
+void _ry_module::restart_all()
+{
+    for (auto m : this->_all)
+        m->stop(), m->start();
 }
 
 #endif

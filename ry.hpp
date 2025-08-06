@@ -97,6 +97,7 @@ inline u32 RY_HASH_STRING(std::string s)
 
 #include <unordered_map>
 #include <queue>
+#include <thread>
 
 typedef u64 ry_event_contract_id;
 typedef u32 ry_event_id;
@@ -122,7 +123,7 @@ class _ry_event_manager
 
     std::queue<std::pair<ry_event_id, ptr>> _async_events;
 
-    std::thread _async_publisher;
+    std::thread _async_publisher_thread;
     bool _async_thred_should_run;
 
     _ry_event_manager();
@@ -195,6 +196,7 @@ ry_event_contract_id _ry_event_manager::subscribe(ry_event_id event_id, F func)
 
 #include <thread>
 #include <vector>
+#include <algorithm>
 
 class _ry_module
 {
@@ -205,7 +207,7 @@ protected:
     bool _is_running = false;
     std::thread _thread = {};
 
-    static std::vector<_ry_module *> _all;
+    static std::vector<_ry_module*> _all;
 
     virtual void thread_exec();
     virtual void update() = 0;
@@ -239,14 +241,15 @@ public:
 _ry_event_manager::_ry_event_manager()
 {
     this->_async_thred_should_run = true;
-    this->_async_publisher = std::thread(&_ry_event_manager::_async_publisher, this).detach();
+    this->_async_publisher_thread = std::thread(&_ry_event_manager::_async_publisher, this);
+    this->_async_publisher_thread.detach();
 }
 
 _ry_event_manager::~_ry_event_manager()
 {
     this->_async_thred_should_run = false;
-    if (this->_async_publisher.joinable())
-        this->_async_publisher.join();
+    if (this->_async_publisher_thread.joinable())
+        this->_async_publisher_thread.join();
     // should break the thread :/
 }
 
@@ -331,7 +334,7 @@ _ry_event_manager *_ry_event_manager::get_singleton()
     return &object;
 }
 
-std::vector<_ry_module *> _ry_module::_all = {};
+std::vector<_ry_module*> _ry_module::_all = {};
 
 void _ry_module::thread_exec()
 {
@@ -382,7 +385,7 @@ void _ry_module::stop()
 
 void _ry_module::start_all()
 {
-    for (auto m : this->_all)
+    for (auto m : _ry_module::_all)
     {
         m->start();
     }
@@ -390,13 +393,13 @@ void _ry_module::start_all()
 
 void _ry_module::stop_all()
 {
-    for (auto m : this->_all)
+    for (auto m : _ry_module::_all)
         m->stop();
 }
 
 void _ry_module::restart_all()
 {
-    for (auto m : this->_all)
+    for (auto m : _ry_module::_all)
         m->stop(), m->start();
 }
 
